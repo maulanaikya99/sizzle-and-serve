@@ -79,6 +79,24 @@ export function createRenderer(canvas) {
     context.fill();
   }
 
+  // A soft shadow cast on the floor under a station (drawn before the station itself).
+  function floorShadow(x, y, w, h) {
+    context.beginPath();
+    ellipsePath(context, x + w / 2, y + h + 8, w * 0.54, 22);
+    const g = context.createRadialGradient(x + w / 2, y + h + 8, 4, x + w / 2, y + h + 8, w * 0.54);
+    g.addColorStop(0, 'rgba(30,16,8,0.32)');
+    g.addColorStop(1, 'rgba(30,16,8,0)');
+    context.fillStyle = g;
+    context.fill();
+  }
+
+  // A glossy highlight on top of a round or rounded piece, so it reads as juicy and lit.
+  function gloss(cx, cy, rx, ry) {
+    context.fillStyle = 'rgba(255,255,255,0.5)';
+    ellipsePath(context, cx, cy, rx, ry);
+    context.fill();
+  }
+
   // --------------------------------------------------------------------- food
 
   function seed(x, y, a) {
@@ -113,6 +131,7 @@ export function createRenderer(canvas) {
     context.fillStyle = '#f7f1dc';
     ellipsePath(context, cx - r * 0.4, cy - r * 0.35, r * 0.22, r * 0.12);
     context.fill();
+    gloss(cx - r * 0.32, cy - r * 0.42, r * 0.16, r * 0.1);
   }
 
   function drawLettuce(cx, cy, r, chopped) {
@@ -160,6 +179,7 @@ export function createRenderer(canvas) {
     context.stroke();
     circle(cx, cy, r * 0.2);
     context.stroke();
+    gloss(cx - r * 0.35, cy - r * 0.4, r * 0.2, r * 0.12);
   }
 
   function drawCheese(cx, cy, r) {
@@ -203,6 +223,7 @@ export function createRenderer(canvas) {
         context.lineTo(cx + r * 0.62, cy - i * r * 0.42);
         context.stroke();
       }
+      gloss(cx - r * 0.3, cy - r * 0.3, r * 0.22, r * 0.1);
     } else {
       context.fillStyle = '#e7b7c2';
       for (let i = 0; i < 5; i += 1) {
@@ -226,6 +247,7 @@ export function createRenderer(canvas) {
     context.strokeStyle = PALETTE.food.bunDark;
     context.lineWidth = 1.5;
     context.stroke();
+    gloss(cx - r * 0.35, cy - r * 0.1, r * 0.3, r * 0.14);
     context.fillStyle = '#fdf4d8';
     seed(cx - r * 0.5, cy + r * 0.25, -0.4);
     seed(cx + r * 0.05, cy - r * 0.15, 0.6);
@@ -249,6 +271,7 @@ export function createRenderer(canvas) {
       context.fillStyle = '#ffc55e';
       circle(cx, cy, r * 0.24);
       context.fill();
+      gloss(cx - r * 0.12, cy - r * 0.12, r * 0.1, r * 0.06);
       return;
     }
     // Raw: an oval shell split the egg is not cracked yet — draw a white oval with yolk.
@@ -354,10 +377,15 @@ export function createRenderer(canvas) {
     wall.addColorStop(1, PALETTE.wallBottom);
     context.fillStyle = wall;
     context.fillRect(0, 0, FIELD.width, LAYOUT.tickets.y + LAYOUT.tickets.h + 10);
+    // warm backsplash strip where the wall meets the floor
+    const floorTop = LAYOUT.tickets.y + LAYOUT.tickets.h + 8;
+    context.fillStyle = PALETTE.backsplash;
+    context.fillRect(0, floorTop - 10, FIELD.width, 14);
+    context.fillStyle = 'rgba(0,0,0,0.18)';
+    context.fillRect(0, floorTop + 2, FIELD.width, 2);
     // floor tiles
     const size = 64;
-    const floorTop = LAYOUT.tickets.y + LAYOUT.tickets.h + 8;
-    for (let y = floorTop, row = 0; y < FIELD.height; y += size, row += 1) {
+    for (let y = floorTop + 4, row = 0; y < FIELD.height; y += size, row += 1) {
       for (let x = 0; x < FIELD.width; x += size) {
         const col = (x / size) | 0;
         context.fillStyle = (row + col) % 2 === 0 ? PALETTE.tileA : PALETTE.tileB;
@@ -377,16 +405,58 @@ export function createRenderer(canvas) {
     context.globalAlpha = 1;
   }
 
+  // Soft shadows under each station, drawn on the floor before the furniture.
+  function drawFloorShadows() {
+    for (const key of ['pantry', 'cutting', 'stove', 'plate', 'pass']) {
+      const r = LAYOUT[key];
+      floorShadow(r.x, r.y, r.w, r.h);
+    }
+  }
+
   function drawHud(state) {
     const h = LAYOUT.hud;
-    text('SIZZLE & SERVE', h.x + 2, h.y + h.h / 2, 22, PALETTE.title, 'left', 'bold ');
+    drawChefHat(h.x + 20, h.y + h.h / 2, 15);
+    text('SIZZLE & SERVE', h.x + 44, h.y + h.h / 2, 21, PALETTE.title, 'left', 'bold ');
+    // Day clock: a circular countdown ring with mm:ss inside.
+    const cx = FIELD.width - 40;
+    const cy = h.y + h.h / 2;
     const secs = Math.ceil(state.shiftTime);
     const mm = String(Math.floor(secs / 60)).padStart(2, '0');
     const ss = String(secs % 60).padStart(2, '0');
-    const clockX = FIELD.width - 16;
-    text('CLOCK', clockX - 118, h.y + h.h / 2, 12, PALETTE.ticketMuted, 'left', 'bold ');
-    text(`${mm}:${ss}`, clockX, h.y + h.h / 2, 22, state.shiftTime < 15 ? PALETTE.ticketBad : PALETTE.title, 'right', 'bold ');
-    text(`$${state.score}`, clockX - 150, h.y + h.h / 2, 16, PALETTE.ticket, 'right', 'bold ');
+    const frac = state.shiftTime / SHIFT_SECONDS;
+    context.lineWidth = 4;
+    context.strokeStyle = 'rgba(255,255,255,0.18)';
+    circle(cx, cy, 15);
+    context.stroke();
+    context.strokeStyle = state.shiftTime < 15 ? PALETTE.ticketBad : '#7fd6a0';
+    context.beginPath();
+    context.arc(cx, cy, 15, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2);
+    context.stroke();
+    text(state.shiftTime < 15 ? `${ss}` : `${mm}:${ss}`, cx, cy, 12, PALETTE.title, 'center', 'bold ');
+    // Score with a small coin.
+    text(`$${state.score}`, cx - 120, cy, 16, PALETTE.ticket, 'right', 'bold ');
+    context.fillStyle = '#f6bf3c';
+    circle(cx - 128, cy, 6);
+    context.fill();
+    context.strokeStyle = '#b9892e';
+    context.lineWidth = 1;
+    context.stroke();
+  }
+
+  // A small chef's toque: a band with three puffy puffs on top.
+  function drawChefHat(cx, cy, r) {
+    context.fillStyle = '#ffffff';
+    context.beginPath();
+    context.arc(cx - r * 0.7, cy - r * 0.1, r * 0.55, Math.PI, 0);
+    context.arc(cx, cy - r * 0.35, r * 0.55, Math.PI, 0);
+    context.arc(cx + r * 0.7, cy - r * 0.1, r * 0.55, Math.PI, 0);
+    context.closePath();
+    context.fill();
+    roundRect(cx - r, cy + r * 0.15, r * 2, r * 0.5, r * 0.2);
+    context.fill();
+    context.strokeStyle = '#c9c2d0';
+    context.lineWidth = 1;
+    context.stroke();
   }
 
   function drawTickets(state) {
@@ -577,9 +647,23 @@ export function createRenderer(canvas) {
     });
   }
 
-  function drawPlate(state) {
+  function drawPlate(state, ready) {
     const p = LAYOUT.plate;
     text('PLATE', p.x + p.w / 2, p.y - 20, 14, PALETTE.hint, 'center', 'bold ');
+    if (ready) {
+      const cx = p.x + p.w / 2;
+      const cy = p.y + p.h / 2 + 6;
+      context.save();
+      context.lineWidth = 5;
+      context.strokeStyle = 'rgba(127,214,160,0.9)';
+      context.beginPath();
+      context.arc(cx, cy, 104, -Math.PI / 2, Math.PI * 1.5);
+      context.stroke();
+      context.lineWidth = 12;
+      context.strokeStyle = 'rgba(127,214,160,0.28)';
+      context.stroke();
+      context.restore();
+    }
     roundRect(p.x - 6, p.y - 6, p.w + 12, p.h + 12, 16);
     context.fillStyle = PALETTE.counterWoodDark;
     context.fill();
@@ -723,10 +807,11 @@ export function createRenderer(canvas) {
   function draw(state, ready, cursorInField) {
     begin();
     drawBackground();
+    drawFloorShadows();
     drawPantry(state);
     drawCuttingBoard(state);
     drawStove(state);
-    drawPlate(state);
+    drawPlate(state, Boolean(ready));
     drawPass(state, Boolean(ready));
     drawHud(state);
     drawTickets(state);

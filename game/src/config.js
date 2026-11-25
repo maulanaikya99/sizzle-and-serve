@@ -42,11 +42,12 @@ export const SCORE = {
 
 // --- Palette ---
 export const PALETTE = {
-  wallTop: '#2b1f2e',
-  wallBottom: '#3b2a40',
-  tileA: '#e8dcc4',
-  tileB: '#dfd0b4',
-  tileLine: '#c9b894',
+  wallTop: '#3a1f38',
+  wallBottom: '#4c2b46',
+  backsplash: '#6e4a3a',
+  tileA: '#ecdcbf',
+  tileB: '#e2cfad',
+  tileLine: '#cbb68c',
   counterWood: '#a06a42',
   counterWoodDark: '#7c4f2e',
   counterTop: '#c58a53',
