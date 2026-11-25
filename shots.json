@@ -1,0 +1,6 @@
+[
+  { "name": "1-kitchen.png", "query": "?shot=kitchen&seed=7" },
+  { "name": "2-chopping.png", "query": "?shot=preparing&seed=7" },
+  { "name": "3-sizzling.png", "query": "?shot=cooking&seed=7" },
+  { "name": "4-serving.png", "query": "?shot=serving&seed=7" }
+]
